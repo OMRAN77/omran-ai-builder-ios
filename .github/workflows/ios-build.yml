@@ -1,0 +1,61 @@
+name: Build iOS and Upload to TestFlight
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      - name: Capacitor sync
+        run: npx cap sync ios
+      - name: Setup App Store Connect API key
+        env:
+          ASC_KEY_B64: ${{ secrets.ASC_KEY_B64 }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$ASC_KEY_B64" | base64 --decode > ~/private_keys/AuthKey_VG6N79N6LU.p8
+      - name: Archive
+        run: |
+          cd ios/App
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+            -destination generic/platform=iOS -archivePath $PWD/build/App.xcarchive archive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_VG6N79N6LU.p8 \
+            -authenticationKeyID VG6N79N6LU \
+            -authenticationKeyIssuerID e99eeaa1-98ce-4986-91f9-a67a9cb80589 \
+            DEVELOPMENT_TEAM=24423J2YT4 CODE_SIGN_STYLE=Automatic
+      - name: Export IPA
+        run: |
+          cd ios/App
+          cat > ExportOptions.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>24423J2YT4</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath $PWD/build/App.xcarchive \
+            -exportPath $PWD/build -exportOptionsPlist ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_VG6N79N6LU.p8 \
+            -authenticationKeyID VG6N79N6LU \
+            -authenticationKeyIssuerID e99eeaa1-98ce-4986-91f9-a67a9cb80589
+      - name: Upload to TestFlight
+        run: |
+          xcrun altool --upload-app -f ios/App/build/App.ipa -t ios \
+            --apiKey VG6N79N6LU --apiIssuer e99eeaa1-98ce-4986-91f9-a67a9cb80589
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: omran-ai-builder-ipa
+          path: ios/App/build/App.ipa
