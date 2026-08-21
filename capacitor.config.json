@@ -4,10 +4,18 @@
   "webDir": "www",
   "server": {
     "url": "https://omran-ai-builder.vercel.app",
-    "allowNavigation": ["omran-ai-builder.vercel.app", "*.vercel.app", "accounts.google.com", "*.google.com"]
+    "allowNavigation": [
+      "omran-ai-builder.vercel.app",
+      "*.vercel.app",
+      "accounts.google.com",
+      "*.google.com"
+    ]
   },
   "ios": {
-    "contentInset": "automatic",
-    "backgroundColor": "#0d0d17"
+    "contentInset": "never",
+    "backgroundColor": "#000000",
+    "allowsLinkPreview": false,
+    "scrollEnabled": true,
+    "limitsNavigationsToAppBoundDomains": true
   }
 }
