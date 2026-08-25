@@ -19,6 +19,17 @@ class SafeAreaViewController: CAPBridgeViewController {
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
 
+        // Lock the screen in place: no rubber-band overscroll, so fixed
+        // bars (header / bottom settings bar) never drag with the page.
+        let scrollView = webView.scrollView
+        scrollView.bounces = false
+        scrollView.alwaysBounceVertical = false
+        scrollView.alwaysBounceHorizontal = false
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.showsHorizontalScrollIndicator = false
+        // Don't let iOS inject its own insets and shift the content.
+        scrollView.contentInsetAdjustmentBehavior = .never
+
         // Pin the web view to the safe area instead of the full screen.
         webView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([

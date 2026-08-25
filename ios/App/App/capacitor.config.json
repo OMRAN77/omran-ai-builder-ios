@@ -12,7 +12,7 @@
 		]
 	},
 	"ios": {
-		"contentInset": "automatic",
+		"contentInset": "never",
 		"backgroundColor": "#0d0d17"
 	},
 	"packageClassList": []
