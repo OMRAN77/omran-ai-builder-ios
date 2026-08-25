@@ -7,7 +7,7 @@
     "allowNavigation": ["omran-ai-builder.vercel.app", "*.vercel.app", "accounts.google.com", "*.google.com"]
   },
   "ios": {
-    "contentInset": "automatic",
+    "contentInset": "never",
     "backgroundColor": "#0d0d17"
   }
 }
