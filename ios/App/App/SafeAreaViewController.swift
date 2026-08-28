@@ -57,6 +57,53 @@ class SafeAreaViewController: CAPBridgeViewController {
         NotificationCenter.default.addObserver(
             self, selector: #selector(resetWebScroll),
             name: UIResponder.keyboardDidHideNotification, object: nil)
+
+        // v3 — جسرا التنزيل (شكوى ٢٨ أغسطس: «تحميل PDF ما يشتغل»):
+        // WKWebView لا يدعم روابط التنزيل ولا window.print()، فالموقع يرسل
+        // الملف/المستند إلى هذين الجسرين وتفتح ورقة مشاركة iOS الأصلية.
+        let ucc = webView.configuration.userContentController
+        ucc.removeScriptMessageHandler(forName: "omranPdf")
+        ucc.removeScriptMessageHandler(forName: "omranShare")
+        ucc.add(self, name: "omranPdf")
+        ucc.add(self, name: "omranShare")
+    }
+
+    // MARK: - جسرا PDF والمشاركة
+
+    /// HTML → PDF أصلي (A4) → ورقة مشاركة
+    private func renderHtmlToPdfAndShare(html: String, fileName: String) {
+        DispatchQueue.main.async {
+            let formatter = UIMarkupTextPrintFormatter(markupText: html)
+            let renderer = UIPrintPageRenderer()
+            renderer.addPrintFormatter(formatter, startingAtPageAt: 0)
+            let page = CGRect(x: 0, y: 0, width: 595.2, height: 841.8) // A4 بالنقاط
+            renderer.setValue(page, forKey: "paperRect")
+            renderer.setValue(page.insetBy(dx: 24, dy: 28), forKey: "printableRect")
+            let data = NSMutableData()
+            UIGraphicsBeginPDFContextToData(data, page, nil)
+            let pages = max(1, renderer.numberOfPages)
+            for i in 0..<pages {
+                UIGraphicsBeginPDFPage()
+                renderer.drawPage(at: i, in: UIGraphicsGetPDFContextBounds())
+            }
+            UIGraphicsEndPDFContext()
+            self.shareFile(data: data as Data, fileName: fileName)
+        }
+    }
+
+    /// ملف جاهز → ورقة مشاركة iOS (حفظ في الملفات / إرسال / طباعة…)
+    private func shareFile(data: Data, fileName: String) {
+        DispatchQueue.main.async {
+            let safeName = fileName.replacingOccurrences(of: "/", with: "-")
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(safeName)
+            do { try data.write(to: url, options: .atomic) } catch { return }
+            let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            if let pop = sheet.popoverPresentationController {
+                pop.sourceView = self.view
+                pop.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 1, height: 1)
+            }
+            (self.presentedViewController ?? self).present(sheet, animated: true)
+        }
     }
 
     @objc private func resetWebScroll() {
@@ -88,5 +135,26 @@ class SafeAreaViewController: CAPBridgeViewController {
     // خلفية داكنة → نص شريط الحالة أبيض
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .lightContent
+    }
+}
+
+// v3 — استقبال رسائل الموقع (جسرا omranPdf / omranShare)
+extension SafeAreaViewController: WKScriptMessageHandler {
+    func userContentController(_ userContentController: WKUserContentController,
+                               didReceive message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any] else { return }
+        switch message.name {
+        case "omranPdf":
+            guard let html = body["html"] as? String, !html.isEmpty else { return }
+            let name = (body["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "omran-ai.pdf"
+            renderHtmlToPdfAndShare(html: html, fileName: name)
+        case "omranShare":
+            guard let b64 = body["b64"] as? String,
+                  let data = Data(base64Encoded: b64), !data.isEmpty else { return }
+            let name = (body["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "omran-file"
+            shareFile(data: data, fileName: name)
+        default:
+            break
+        }
     }
 }
