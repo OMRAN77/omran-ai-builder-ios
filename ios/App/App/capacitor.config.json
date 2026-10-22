@@ -1,6 +1,6 @@
 {
 	"appId": "com.omran.aibuilder",
-	"appName": "Omran AI Builder",
+	"appName": "om ai",
 	"webDir": "www",
 	"server": {
 		"url": "https://omran-ai-builder.vercel.app",
